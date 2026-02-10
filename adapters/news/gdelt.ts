@@ -115,6 +115,7 @@ export class GDELTNewsAdapter implements NewsAdapter {
               imageUrl: validated.socialimage,
               tags: this.extractTags(validated.title),
               tickers: [],
+              sentiment: null, // GDELT doesn't provide sentiment
             } as NewsArticle;
           } catch (error) {
             console.warn("Failed to parse GDELT article:", error);

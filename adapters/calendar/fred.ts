@@ -14,7 +14,6 @@ export class FREDCalendarAdapter implements CalendarAdapter {
 
   async fetchEvents(params: CalendarAdapterParams): Promise<CalendarEvent[]> {
     // FRED doesn't have a calendar API, but we can fetch recent releases
-    // This is a simplified implementation using economic indicators as "events"
     
     try {
       const series = [
@@ -27,9 +26,14 @@ export class FREDCalendarAdapter implements CalendarAdapter {
 
       const events: CalendarEvent[] = [];
 
+      // Get observations from last 6 months
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const observationStart = sixMonthsAgo.toISOString().split('T')[0];
+
       for (const s of series) {
         try {
-          const url = `${this.baseUrl}/series/observations?series_id=${s.id}&api_key=${this.apiKey}&file_type=json&limit=1&sort_order=desc`;
+          const url = `${this.baseUrl}/series/observations?series_id=${s.id}&api_key=${this.apiKey}&file_type=json&observation_start=${observationStart}&sort_order=desc&limit=3`;
           
           const response = await fetch(url);
           if (!response.ok) continue;
@@ -37,18 +41,20 @@ export class FREDCalendarAdapter implements CalendarAdapter {
           const data = await response.json();
           
           if (data.observations && data.observations.length > 0) {
-            const obs = data.observations[0];
-            
-            events.push({
-              id: `fred-${s.id}-${obs.date}`,
-              date: new Date(obs.date).toISOString(),
-              country: "US",
-              event: s.name,
-              impact: s.impact,
-              actual: obs.value,
-              forecast: undefined,
-              previous: undefined,
-              currency: "USD",
+            data.observations.forEach((obs: any, index: number) => {
+              const eventDate = new Date(obs.date + "T14:30:00Z");
+              
+              events.push({
+                id: `fred-${s.id}-${obs.date}`,
+                date: eventDate.toISOString(),
+                country: "US",
+                event: s.name,
+                impact: s.impact,
+                actual: obs.value,
+                forecast: undefined,
+                previous: index < data.observations.length - 1 ? data.observations[index + 1].value : undefined,
+                currency: "USD",
+              });
             });
           }
         } catch (error) {
@@ -56,7 +62,7 @@ export class FREDCalendarAdapter implements CalendarAdapter {
         }
       }
 
-      return events;
+      return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     } catch (error) {
       console.error("FRED calendar fetch error:", error);
       return [];

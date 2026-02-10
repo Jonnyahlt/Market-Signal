@@ -56,14 +56,29 @@ export class TwelveDataAdapter implements MarketDataAdapter {
 
       const data = await response.json();
 
-      // Handle both single and multiple results
-      const quotes = Array.isArray(data) ? data : [data];
+      // TwelveData returns an object with symbols as keys for batch requests
+      // Single symbol returns direct object, multiple returns { "AAPL": {...}, "MSFT": {...} }
+      let quotes: any[] = [];
+      
+      if (symbols.length === 1) {
+        // Single symbol - data is the quote directly
+        quotes = [data];
+      } else {
+        // Multiple symbols - data is object with symbol keys
+        quotes = Object.values(data);
+      }
 
       return quotes
         .map((quote): MarketTicker | null => {
           try {
-            if (quote.code === 401 || quote.status === "error") {
-              console.warn(`Error for ${quote.symbol}:`, quote.message);
+            if (!quote || quote.code === 401 || quote.status === "error") {
+              console.warn(`Error for symbol:`, quote?.message || "Unknown error");
+              return null;
+            }
+
+            // Validate required fields
+            if (!quote.symbol || !quote.close) {
+              console.warn("Missing required fields in quote:", quote);
               return null;
             }
 
@@ -72,13 +87,13 @@ export class TwelveDataAdapter implements MarketDataAdapter {
               name: quote.name || quote.symbol,
               type: "stock",
               price: parseFloat(quote.close),
-              change: parseFloat(quote.change),
-              changePercent: parseFloat(quote.percent_change),
+              change: parseFloat(quote.change || 0),
+              changePercent: parseFloat(quote.percent_change || 0),
               volume: quote.volume ? parseFloat(quote.volume) : undefined,
               lastUpdated: new Date().toISOString(),
             };
           } catch (error) {
-            console.warn(`Failed to parse ticker for ${quote.symbol}:`, error);
+            console.warn(`Failed to parse ticker:`, error);
             return null;
           }
         })

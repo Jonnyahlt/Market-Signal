@@ -13,7 +13,7 @@ export const NewsArticleSchema = z.object({
   publishedAt: z.string().datetime(),
   imageUrl: z.string().url().optional(),
   tags: z.array(z.string()).default([]),
-  sentiment: z.enum(["positive", "negative", "neutral"]).optional().nullable(),
+  sentiment: z.enum(["positive", "negative", "neutral"]).nullable().optional(),
   relevanceScore: z.number().min(0).max(1).optional(),
   tickers: z.array(z.string()).default([]),
 });

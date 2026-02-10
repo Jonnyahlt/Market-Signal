@@ -74,7 +74,7 @@ export class CoinGeckoAdapter implements MarketDataAdapter {
             return null;
           }
         })
-        .filter((ticker): ticker is MarketTicker => ticker !== null);
+        .filter((ticker: MarketTicker | null): ticker is MarketTicker => ticker !== null);
     } catch (error) {
       console.error("CoinGecko fetch error:", error);
       return [];

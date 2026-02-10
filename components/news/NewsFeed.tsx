@@ -32,6 +32,7 @@ export function NewsFeed() {
 
     try {
       const params = new URLSearchParams();
+      params.append("limit", "50"); // Fetch 50 articles
       if (filters.search) params.append("search", filters.search);
       if (filters.tags.length > 0) params.append("tags", filters.tags.join(","));
       if (filters.tickers.length > 0) params.append("tickers", filters.tickers.join(","));

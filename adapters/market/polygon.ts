@@ -29,14 +29,15 @@ export class PolygonAdapter implements MarketDataAdapter {
       }
 
       const result = data.results[0];
+      const ticker = data.ticker || symbol; // Use ticker from response or fallback to input symbol
 
       // Calculate change (we need to get snapshot for real-time price)
       const change = result.c - result.o;
       const changePercent = ((change / result.o) * 100);
 
       return {
-        symbol: symbol,
-        name: symbol, // Polygon doesn't provide name in this endpoint
+        symbol: ticker.toUpperCase(),
+        name: ticker.toUpperCase(), // Polygon doesn't provide name in this endpoint
         type: "stock",
         price: result.c,
         change: change,

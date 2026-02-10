@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MarketDataAdapterFactory, detectAssetType } from "@/adapters";
+import { getUserApiKeys } from "@/lib/user-api-keys";
+import { cacheGet, cacheSet } from "@/lib/redis/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Get user's API keys
+    const userKeys = await getUserApiKeys();
+
+    // Check cache first
+    const cacheKey = `market:${type}:${symbols.join(",")}`;
+    const cached = await cacheGet<any>(cacheKey);
+    
+    if (cached) {
+      return NextResponse.json({
+        ...cached,
+        cached: true,
+      });
+    }
+
     // Group symbols by type
     const cryptoSymbols: string[] = [];
     const stockSymbols: string[] = [];
@@ -36,22 +52,32 @@ export async function GET(request: NextRequest) {
     const results = [];
 
     if (cryptoSymbols.length > 0) {
-      const adapter = MarketDataAdapterFactory.getAdapter("crypto");
+      const adapter = MarketDataAdapterFactory.getAdapter("crypto", undefined, userKeys);
       const cryptoData = await adapter.fetchMultipleTickers(cryptoSymbols);
       results.push(...cryptoData);
     }
 
     if (stockSymbols.length > 0) {
-      const adapter = MarketDataAdapterFactory.getAdapter("stocks");
+      const adapter = MarketDataAdapterFactory.getAdapter("stocks", undefined, userKeys);
       const stockData = await adapter.fetchMultipleTickers(stockSymbols);
       results.push(...stockData);
     }
 
-    return NextResponse.json({
+    // Filter out any invalid/null tickers
+    const validResults = results.filter(
+      (ticker) => ticker && ticker.symbol && ticker.name && ticker.price
+    );
+
+    const response = {
       success: true,
-      data: results,
-      count: results.length,
-    });
+      data: validResults,
+      count: validResults.length,
+    };
+
+    // Cache for 60 seconds
+    await cacheSet(cacheKey, response, 60);
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Market API error:", error);
     return NextResponse.json(

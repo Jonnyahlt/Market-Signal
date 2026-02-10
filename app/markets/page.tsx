@@ -5,7 +5,9 @@ import Link from "next/link";
 import { MarketTicker } from "@/types";
 import { TickerCard } from "@/components/market/TickerCard";
 import { TickerTable } from "@/components/market/TickerTable";
-import { Loader2, Grid3x3, List } from "lucide-react";
+import { CryptoMarketStats } from "@/components/market/CryptoMarketStats";
+import { TopMovers } from "@/components/market/TopMovers";
+import { Loader2, Grid3x3, List, Search } from "lucide-react";
 
 const DEFAULT_CRYPTO = ["BTC", "ETH", "BNB", "SOL", "XRP", "ADA", "AVAX", "DOT", "MATIC", "LINK"];
 const DEFAULT_STOCKS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "AMD"];
@@ -17,19 +19,30 @@ export default function MarketsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [customSearch, setCustomSearch] = useState("");
+  const [searchMode, setSearchMode] = useState<"default" | "custom">("default");
 
   useEffect(() => {
     fetchMarketData();
     const interval = setInterval(fetchMarketData, 30000); // Update every 30s
     return () => clearInterval(interval);
-  }, [tab]);
+  }, [tab, searchMode, customSearch]);
 
   const fetchMarketData = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const symbols = tab === "crypto" ? DEFAULT_CRYPTO : DEFAULT_STOCKS;
+      let symbols: string[];
+      
+      if (searchMode === "custom" && customSearch.trim()) {
+        // User typed custom symbols
+        symbols = customSearch.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+      } else {
+        // Default symbols
+        symbols = tab === "crypto" ? DEFAULT_CRYPTO : DEFAULT_STOCKS;
+      }
+
       const response = await fetch(`/api/market?symbols=${symbols.join(",")}&type=${tab === "crypto" ? "crypto" : "stocks"}`);
       const data = await response.json();
 
@@ -45,10 +58,21 @@ export default function MarketsPage() {
     }
   };
 
+  const handleCustomSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchMode("custom");
+    fetchMarketData();
+  };
+
+  const resetToDefault = () => {
+    setCustomSearch("");
+    setSearchMode("default");
+  };
+
   const filteredTickers = tickers.filter(
     (ticker) =>
-      ticker.symbol.toLowerCase().includes(search.toLowerCase()) ||
-      ticker.name.toLowerCase().includes(search.toLowerCase())
+      ticker?.symbol?.toLowerCase().includes(search.toLowerCase()) ||
+      ticker?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -126,37 +150,75 @@ export default function MarketsPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex items-center gap-4">
-            <div className="flex gap-2 bg-secondary rounded-lg p-1">
-              <button
-                onClick={() => setTab("crypto")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  tab === "crypto"
-                    ? "bg-background shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Crypto
-              </button>
-              <button
-                onClick={() => setTab("stocks")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  tab === "stocks"
-                    ? "bg-background shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Stocks
-              </button>
-            </div>
+          <div className="flex gap-2 bg-secondary rounded-lg p-1 w-fit">
+            <button
+              onClick={() => { setTab("crypto"); resetToDefault(); }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                tab === "crypto"
+                  ? "bg-background shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Crypto
+            </button>
+            <button
+              onClick={() => { setTab("stocks"); resetToDefault(); }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                tab === "stocks"
+                  ? "bg-background shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Stocks
+            </button>
+          </div>
 
-            {/* Search */}
+          {/* Crypto Stats (only on crypto tab) */}
+          {tab === "crypto" && <CryptoMarketStats />}
+          
+          {/* Top Movers (only on crypto tab) */}
+          {tab === "crypto" && <TopMovers />}
+
+          {/* Search & Filter */}
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Custom Symbol Search */}
+            <form onSubmit={handleCustomSearch} className="flex-1 max-w-2xl">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder={`Search symbols (e.g., ${tab === "crypto" ? "BTC,ETH,SOL" : "AAPL,TSLA,NVDA"})`}
+                    value={customSearch}
+                    onChange={(e) => setCustomSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                >
+                  Search
+                </button>
+                {searchMode === "custom" && (
+                  <button
+                    type="button"
+                    onClick={resetToDefault}
+                    className="px-4 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </form>
+
+            {/* Filter displayed tickers */}
             <input
               type="text"
-              placeholder="Search markets..."
+              placeholder="Filter displayed..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 max-w-sm px-4 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="max-w-xs px-4 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
@@ -189,6 +251,9 @@ export default function MarketsPage() {
               {filteredTickers.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground">No tickers found</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Try searching for different symbols
+                  </p>
                 </div>
               ) : view === "grid" ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

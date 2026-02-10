@@ -3,7 +3,7 @@
 import { CalendarEvent } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface EventCardProps {
@@ -37,6 +37,13 @@ export function EventCard({ event }: EventCardProps) {
 
   const valueChange = getValueChange();
 
+  // Format date in EST timezone
+  const formattedDate = formatInTimeZone(
+    new Date(event.date),
+    "America/New_York",
+    "MMM dd, yyyy 'at' HH:mm 'EST'"
+  );
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
@@ -47,9 +54,7 @@ export function EventCard({ event }: EventCardProps) {
               <span className="text-xs text-muted-foreground">{event.country}</span>
             </div>
             <h3 className="font-semibold text-base">{event.event}</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              {format(new Date(event.date), "MMM dd, yyyy 'at' HH:mm")}
-            </p>
+            <p className="text-sm text-muted-foreground mt-1">{formattedDate}</p>
           </div>
         </div>
       </CardHeader>

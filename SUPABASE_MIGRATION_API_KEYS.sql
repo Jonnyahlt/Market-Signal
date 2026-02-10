@@ -1,9 +1,9 @@
-# Supabase Migration - User API Keys för ALLA providers
+# Supabase Migration - User API Keys för ALLA providers + Timezone
 
 Kör detta i Supabase SQL Editor:
 
 ```sql
--- Drop old table and recreate with all API keys
+-- Drop old table and recreate with all API keys and settings
 DROP TABLE IF EXISTS public.user_api_keys;
 
 CREATE TABLE public.user_api_keys (
@@ -21,6 +21,9 @@ CREATE TABLE public.user_api_keys (
   
   -- Calendar/Economic Data
   fred_api_key TEXT,
+  
+  -- User preferences
+  preferred_timezone TEXT DEFAULT 'EST',
   
   -- Timestamps
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

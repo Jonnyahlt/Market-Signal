@@ -83,37 +83,70 @@ export class NewsAdapterFactory {
 // MARKET DATA ADAPTER FACTORY
 // ============================================================================
 
+interface UserApiKeys {
+  twelve_data_api_key?: string;
+  polygon_api_key?: string;
+  finnhub_api_key?: string;
+  alpha_vantage_api_key?: string;
+}
+
 export class MarketDataAdapterFactory {
   private static adapters: Map<string, MarketDataAdapter> = new Map();
 
-  static getAdapter(type: "crypto" | "stocks", name?: string): MarketDataAdapter {
-    const adapterName = name || config.market[type];
+  static getAdapter(
+    type: "crypto" | "stocks",
+    name?: string,
+    userKeys?: UserApiKeys
+  ): MarketDataAdapter {
+    // Determine which adapter to use based on available keys
+    let adapterName = name;
+
+    if (!adapterName && type === "stocks") {
+      // Priority: User's keys > Env keys
+      if (userKeys?.twelve_data_api_key || process.env.TWELVE_DATA_API_KEY) {
+        adapterName = "twelvedata";
+      } else if (userKeys?.polygon_api_key || process.env.POLYGON_API_KEY) {
+        adapterName = "polygon";
+      } else if (userKeys?.finnhub_api_key || process.env.FINNHUB_API_KEY) {
+        adapterName = "finnhub";
+      } else {
+        adapterName = "alphavantage";
+      }
+    } else if (!adapterName && type === "crypto") {
+      adapterName = config.market.crypto;
+    }
 
     const key = `${type}-${adapterName}`;
+    
+    // Don't cache adapters if using user keys (they might change)
+    if (userKeys) {
+      return this.createAdapter(adapterName || "alphavantage", userKeys);
+    }
+
     if (!this.adapters.has(key)) {
-      this.adapters.set(key, this.createAdapter(adapterName));
+      this.adapters.set(key, this.createAdapter(adapterName || "alphavantage", userKeys));
     }
 
     return this.adapters.get(key)!;
   }
 
-  private static createAdapter(name: string): MarketDataAdapter {
+  private static createAdapter(name: string, userKeys?: UserApiKeys): MarketDataAdapter {
     switch (name.toLowerCase()) {
       case "coingecko":
         return new CoinGeckoAdapter();
       case "alphavantage":
-        const alphaKey = process.env.ALPHA_VANTAGE_API_KEY || "demo";
+        const alphaKey = userKeys?.alpha_vantage_api_key || process.env.ALPHA_VANTAGE_API_KEY || "demo";
         return new AlphaVantageAdapter(alphaKey);
       case "twelvedata":
-        const twelveKey = process.env.TWELVE_DATA_API_KEY;
+        const twelveKey = userKeys?.twelve_data_api_key || process.env.TWELVE_DATA_API_KEY;
         if (!twelveKey) throw new Error("TWELVE_DATA_API_KEY not configured");
         return new TwelveDataAdapter(twelveKey);
       case "polygon":
-        const polygonKey = process.env.POLYGON_API_KEY;
+        const polygonKey = userKeys?.polygon_api_key || process.env.POLYGON_API_KEY;
         if (!polygonKey) throw new Error("POLYGON_API_KEY not configured");
         return new PolygonAdapter(polygonKey);
       case "finnhub":
-        const finnhubKey = process.env.FINNHUB_API_KEY;
+        const finnhubKey = userKeys?.finnhub_api_key || process.env.FINNHUB_API_KEY;
         if (!finnhubKey) throw new Error("FINNHUB_API_KEY not configured");
         return new FinnhubAdapter(finnhubKey);
       default:

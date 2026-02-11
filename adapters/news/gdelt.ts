@@ -66,6 +66,7 @@ export class GDELTNewsAdapter implements NewsAdapter {
     queryParts.push("maxrecords=250");
     queryParts.push("format=json");
     queryParts.push("sort=datedesc");
+    queryParts.push("sourcelang=eng"); // ONLY ENGLISH
 
     // Time range
     if (params.dateFrom) {
@@ -102,7 +103,14 @@ export class GDELTNewsAdapter implements NewsAdapter {
       }
 
       return data.articles
-        .map((article: any, index: number) => {
+        .filter((article: any) => {
+          // Filter out non-English articles
+          if (article.language && article.language !== 'English') {
+            return false;
+          }
+          return true;
+        })
+        .map((article: any) => {
           try {
             const validated = GDELTArticleSchema.parse(article);
             
@@ -122,7 +130,7 @@ export class GDELTNewsAdapter implements NewsAdapter {
             return null;
           }
         })
-        .filter((article): article is NewsArticle => article !== null);
+        .filter((article: NewsArticle | null): article is NewsArticle => article !== null);
     } catch (error) {
       console.error("Failed to parse GDELT response:", error);
       return [];

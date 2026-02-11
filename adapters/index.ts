@@ -165,9 +165,20 @@ export class MarketDataAdapterFactory {
 
 export class CalendarAdapterFactory {
   static getAdapter(name?: string): CalendarAdapter {
+    // Try Trading Economics first (future events)
+    if (process.env.TRADING_ECONOMICS_API_KEY && !name) {
+      const { TradingEconomicsAdapter } = require("./calendar/tradingeconomics");
+      return new TradingEconomicsAdapter(process.env.TRADING_ECONOMICS_API_KEY);
+    }
+
     const adapterName = name || config.calendar.default;
 
     switch (adapterName.toLowerCase()) {
+      case "tradingeconomics":
+        const teKey = process.env.TRADING_ECONOMICS_API_KEY;
+        if (!teKey) throw new Error("TRADING_ECONOMICS_API_KEY not configured");
+        const { TradingEconomicsAdapter } = require("./calendar/tradingeconomics");
+        return new TradingEconomicsAdapter(teKey);
       case "fred":
         const fredKey = process.env.FRED_API_KEY;
         if (!fredKey) {

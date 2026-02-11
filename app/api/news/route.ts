@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { NewsAdapterFactory } from "@/adapters";
-import { NewsFilterSchema } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -8,50 +7,42 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
 
-    // Parse query parameters
-    const filter = {
-      search: searchParams.get("search") || undefined,
-      tags: searchParams.get("tags")?.split(",") || undefined,
-      tickers: searchParams.get("tickers")?.split(",") || undefined,
-      sources: searchParams.get("sources")?.split(",") || undefined,
-      sentiment: searchParams.get("sentiment") as "positive" | "negative" | "neutral" | undefined,
-      dateFrom: searchParams.get("dateFrom") || undefined,
-      dateTo: searchParams.get("dateTo") || undefined,
-    };
-
-    // Validate filter
-    const validatedFilter = NewsFilterSchema.parse(filter);
+    // Parse query parameters (no validation needed)
+    const search = searchParams.get("search") || undefined;
+    const tags = searchParams.get("tags")?.split(",").filter(Boolean) || undefined;
+    const tickers = searchParams.get("tickers")?.split(",").filter(Boolean) || undefined;
+    const sources = searchParams.get("sources")?.split(",").filter(Boolean) || undefined;
+    const sentiment = searchParams.get("sentiment") as "positive" | "negative" | "neutral" | undefined;
+    const limit = parseInt(searchParams.get("limit") || "50");
 
     // Get news adapter
     const adapter = NewsAdapterFactory.getAdapter();
 
     // Fetch news
     const news = await adapter.fetchNews({
-      query: validatedFilter.search,
-      tickers: validatedFilter.tickers,
-      limit: 50,
-      dateFrom: validatedFilter.dateFrom ? new Date(validatedFilter.dateFrom) : undefined,
-      dateTo: validatedFilter.dateTo ? new Date(validatedFilter.dateTo) : undefined,
+      query: search,
+      tickers: tickers,
+      limit: limit,
     });
 
-    // Apply filters
+    // Apply filters (articles already validated in adapter)
     let filteredNews = news;
 
-    if (validatedFilter.tags && validatedFilter.tags.length > 0) {
+    if (tags && tags.length > 0) {
       filteredNews = filteredNews.filter((article) =>
-        validatedFilter.tags!.some((tag) => article.tags.includes(tag))
+        tags.some((tag) => article.tags.includes(tag))
       );
     }
 
-    if (validatedFilter.sources && validatedFilter.sources.length > 0) {
+    if (sources && sources.length > 0) {
       filteredNews = filteredNews.filter((article) =>
-        validatedFilter.sources!.includes(article.source)
+        sources.includes(article.source)
       );
     }
 
-    if (validatedFilter.sentiment) {
+    if (sentiment) {
       filteredNews = filteredNews.filter(
-        (article) => article.sentiment === validatedFilter.sentiment
+        (article) => article.sentiment === sentiment
       );
     }
 

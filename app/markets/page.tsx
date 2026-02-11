@@ -24,9 +24,10 @@ export default function MarketsPage() {
 
   useEffect(() => {
     fetchMarketData();
-    const interval = setInterval(fetchMarketData, 30000); // Update every 30s
+    const interval = setInterval(fetchMarketData, 30000);
     return () => clearInterval(interval);
-  }, [tab, searchMode, customSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   const fetchMarketData = async () => {
     setLoading(true);
@@ -58,15 +59,35 @@ export default function MarketsPage() {
     }
   };
 
-  const handleCustomSearch = (e: React.FormEvent) => {
+  const handleCustomSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!customSearch.trim()) return;
+    
     setSearchMode("custom");
-    fetchMarketData();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const symbols = customSearch.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+      const response = await fetch(`/api/market?symbols=${symbols.join(",")}&type=${tab === "crypto" ? "crypto" : "stocks"}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setTickers(data.data);
+      } else {
+        setError(data.error || "Failed to fetch market data");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resetToDefault = () => {
     setCustomSearch("");
     setSearchMode("default");
+    fetchMarketData();
   };
 
   const filteredTickers = tickers.filter(
